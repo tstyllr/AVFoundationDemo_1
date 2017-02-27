@@ -21,7 +21,7 @@
 @property (strong,nonatomic) AVMutableComposition *composition;
 @property (strong,nonatomic) AVMutableAudioMix *audioMix;
 @property (strong,nonatomic) AVMutableVideoComposition *videoComposition;
-@property (strong,nonatomic) CALayer *waterMarkLayer;
+@property (strong,nonatomic) CALayer *waterMark;
 
 @end
 
@@ -74,6 +74,8 @@
 
 - (IBAction)exportVideo:(UIButton *)sender {
 
+    [self.player pause];
+    self.controlVideoButton.enabled = YES;
     [self exportVideo];
 }
 
@@ -81,25 +83,23 @@
     
     if (sender.isOn) {
         
-        CALayer *watermarkLayer =  [CALayer layer];
-        watermarkLayer.backgroundColor = [UIColor greenColor].CGColor;
-        watermarkLayer.frame = CGRectMake(8, 8, 20, 20);
-        [self.playerView.layer addSublayer:watermarkLayer];
-        self.waterMarkLayer = watermarkLayer;
+        CALayer *waterMark =  [CALayer layer];
+        waterMark.backgroundColor = [UIColor greenColor].CGColor;
+        waterMark.frame = CGRectMake(8, 8, 20, 20);
+        [self.playerView.layer addSublayer:waterMark];
+        self.waterMark = waterMark;
 
     }else{
         
-        [self.waterMarkLayer removeFromSuperlayer];
-        self.waterMarkLayer = nil;
+        [self.waterMark removeFromSuperlayer];
+        self.waterMark = nil;
     }
-    
-    [self setupPlayer];
 }
 
 - (IBAction)audioFadeOut:(UISwitch *)sender {
     
     AVMutableAudioMixInputParameters *parameters = (AVMutableAudioMixInputParameters *)[self.audioMix.inputParameters firstObject];
-    CMTimeRange timeRange = CMTimeRangeMake(CMTimeMakeWithSeconds(CMTimeGetSeconds(self.composition.duration)/2, 600), self.composition.duration);
+    CMTimeRange timeRange = CMTimeRangeMake(kCMTimeZero,self.composition.duration);
 
     if (sender.isOn) {
         [parameters setVolumeRampFromStartVolume:1 toEndVolume:0 timeRange:timeRange];
@@ -166,8 +166,6 @@
 
 - (void)exportVideo{
     
-    if (self.player) [self.player pause];
-    
     self.loadingView.hidden = NO;
     
     AVAssetExportSession *exportSession = [[AVAssetExportSession alloc] initWithAsset:self.composition presetName:AVAssetExportPresetHighestQuality];
@@ -177,10 +175,10 @@
         [fileManager removeItemAtURL:videoUrl error:nil];
     }
     
-    if (self.waterMarkLayer) {
+    if (self.waterMark) {
         
         CGSize videoSize = self.videoComposition.renderSize;
-        CALayer *waterMark = [self getWaterMarkWithSource:self.waterMarkLayer videoSize:videoSize playerViewSize:self.playerView.frame.size];
+        CALayer *waterMark = [self getWaterMarkWithSource:self.waterMark videoSize:videoSize playerViewSize:self.playerView.frame.size];
         CALayer *parentLayer = [CALayer layer];
         CALayer *videoLayer = [CALayer layer];
         parentLayer.frame = CGRectMake(0, 0, videoSize.width, videoSize.height);
@@ -220,29 +218,11 @@
 
 #pragma mark  setup video player
 
-- (void)setupPlayerWithUrl:(NSURL *)url{
-    
-    AVPlayerItem *item = [AVPlayerItem playerItemWithURL:url];
-    if (self.player) {
-        
-        [self.player replaceCurrentItemWithPlayerItem:item];
-        
-    }else{
-        
-        self.player = [[AVPlayer alloc] initWithPlayerItem:item];
-        self.playerView.player = self.player;
-        [[NSNotificationCenter defaultCenter] addObserverForName:AVPlayerItemDidPlayToEndTimeNotification object:nil queue:nil usingBlock:^(NSNotification * _Nonnull note) {
-            [self.player seekToTime:kCMTimeZero];
-            self.controlVideoButton.enabled = YES;
-        }];
-    }
-    
-    self.controlVideoButton.enabled = YES;
-}
-
 - (void)setupPlayer{
     
+    //一定要将animationTool设为NULL，否则会导致奔溃
     self.videoComposition.animationTool = NULL;
+    
     AVPlayerItem *item = [AVPlayerItem playerItemWithAsset:self.composition];
     item.audioMix = self.audioMix;
     item.videoComposition = self.videoComposition;
@@ -269,46 +249,35 @@
 
 - (void)setupComposition{
     
+    //获取音、视频资源（AVAssetTrack）
     NSURL *video1Url = [[NSBundle mainBundle] URLForResource:@"video1" withExtension:@"m4v"];
     NSURL *video2Url = [[NSBundle mainBundle] URLForResource:@"video2" withExtension:@"mov"];
     NSURL *audioUrl = [[NSBundle mainBundle] URLForResource:@"audio" withExtension:@"mp3"];
-    AVAssetTrack *video1Track = [self getAssetTrackWithAssetUrl:video1Url mediaType:AVMediaTypeVideo];
-    AVAssetTrack *video2Track = [self getAssetTrackWithAssetUrl:video2Url mediaType:AVMediaTypeVideo];
-    AVAssetTrack *audioTrack = [self getAssetTrackWithAssetUrl:audioUrl mediaType:AVMediaTypeAudio];
+    AVURLAsset *video1Asset = [AVURLAsset assetWithURL:video1Url];
+    AVURLAsset *video2Asset = [AVURLAsset assetWithURL:video2Url];
+    AVURLAsset *audioAsset = [AVURLAsset assetWithURL:audioUrl];
+    AVAssetTrack *video1Track = [[video1Asset tracksWithMediaType:AVMediaTypeVideo] firstObject];
+    AVAssetTrack *video2Track = [[video2Asset tracksWithMediaType:AVMediaTypeVideo] firstObject];
+    AVAssetTrack *audioTrack = [[audioAsset tracksWithMediaType:AVMediaTypeAudio] firstObject];
     NSAssert(video1Track && video2Track && audioTrack, @"无法读取视频或音频材料");
     
+    //step 1 初始化AVMutableComposition，并创建两条空轨道AVMutableCompositionTrack，一条是video类型，另一条是audio类型
     self.composition = [AVMutableComposition composition];
     AVMutableCompositionTrack *videoCompositionTrack = [self.composition addMutableTrackWithMediaType:AVMediaTypeVideo preferredTrackID:kCMPersistentTrackID_Invalid];
     AVMutableCompositionTrack *audioCompositionTrack = [self.composition addMutableTrackWithMediaType:AVMediaTypeAudio preferredTrackID:kCMPersistentTrackID_Invalid];
     
+    //step 2 往视频轨道插入视频资源
     Float64 videoCutTime = 3;
     CMTimeRange videoCutRange = CMTimeRangeMake(kCMTimeZero, CMTimeMakeWithSeconds(videoCutTime, 600));
+    [videoCompositionTrack insertTimeRange:videoCutRange ofTrack:video1Track atTime:kCMTimeZero error:nil];
+    [videoCompositionTrack insertTimeRange:videoCutRange ofTrack:video2Track atTime:CMTimeMakeWithSeconds(videoCutTime, 600) error:nil];
     
-    NSError *error = nil;
-    [videoCompositionTrack insertTimeRange:videoCutRange ofTrack:video1Track atTime:self.composition.duration error:&error];
-    NSAssert(!error, @"插入视频轨道失败");
-    [videoCompositionTrack insertTimeRange:videoCutRange ofTrack:video2Track atTime:self.composition.duration error:&error];
-    NSAssert(!error, @"插入视频轨道失败");
-    
+    //step 3 往音频轨道插入音频资源
     CMTimeRange audioCutRange = CMTimeRangeMake(kCMTimeZero, CMTimeMakeWithSeconds(videoCutTime * 2, 600));
-    [audioCompositionTrack insertTimeRange:audioCutRange ofTrack:audioTrack atTime:kCMTimeZero error:&error];
-    NSAssert(!error, @"插入音频轨道失败");
+    [audioCompositionTrack insertTimeRange:audioCutRange ofTrack:audioTrack atTime:kCMTimeZero error:nil];
 }
 
-#pragma mark Utilities
-
-- (AVAssetTrack *)getAssetTrackWithAssetUrl:(NSURL *)url mediaType:(NSString *)mediaType{
-    
-    AVAssetTrack *track = nil;
-    
-    AVURLAsset *asset = [AVURLAsset assetWithURL:url];
-    NSArray *trackArray = [asset tracksWithMediaType:mediaType];
-    if (trackArray.count > 0) {
-        track = [trackArray firstObject];
-    }
-
-    return track;
-}
+#pragma mark utilities
 
 - (void)saveVideoWithUrl:(NSURL *)url{
     
