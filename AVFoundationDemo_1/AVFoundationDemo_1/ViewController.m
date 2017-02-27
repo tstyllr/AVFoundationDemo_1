@@ -16,8 +16,9 @@
 @property (weak, nonatomic) IBOutlet PlayerView *playerView;
 @property (weak, nonatomic) IBOutlet UIBarButtonItem *controlVideoButton;
 @property (weak, nonatomic) IBOutlet UIView *loadingView;
-@property (strong,nonatomic) AVMutableComposition *composition;
+
 @property (strong,nonatomic) AVPlayer *player;
+@property (strong,nonatomic) AVMutableComposition *composition;
 @property (strong,nonatomic) AVMutableAudioMix *audioMix;
 @property (strong,nonatomic) AVMutableVideoComposition *videoComposition;
 @property (strong,nonatomic) CALayer *waterMarkLayer;
@@ -30,22 +31,43 @@
 - (void)viewDidLoad{
     
     [super viewDidLoad];
-    
-    NSURL *url = [[NSBundle mainBundle] URLForResource:@"video1" withExtension:@"MOV"];
-    [self appendVideoWithUrl:url];
-    url = [[NSBundle mainBundle] URLForResource:@"video2" withExtension:@"MOV"];
-    [self appendVideoWithUrl:url];
+    [self setupComposition];
     [self setupPlayer];
 }
 
 #pragma mark - getter
 
-- (AVMutableComposition *)composition{
+- (AVMutableAudioMix *)audioMix{
     
-    if (!_composition) {
-        _composition = [AVMutableComposition composition];
+    if (!_audioMix) {
+        
+        AVMutableCompositionTrack *audioTrack = [[self.composition tracksWithMediaType:AVMediaTypeAudio] firstObject];
+        AVMutableAudioMixInputParameters *parameters = [AVMutableAudioMixInputParameters audioMixInputParametersWithTrack:audioTrack];
+        _audioMix = [AVMutableAudioMix audioMix];
+        _audioMix.inputParameters = @[parameters];
     }
-    return _composition;
+    
+    return _audioMix;
+}
+
+- (AVMutableVideoComposition *)videoComposition{
+    
+    if (!_videoComposition) {
+        
+        AVMutableCompositionTrack *videoTrack = [[self.composition tracksWithMediaType:AVMediaTypeVideo] firstObject];
+        AVMutableVideoCompositionLayerInstruction *compositionLayerInstruction = [AVMutableVideoCompositionLayerInstruction videoCompositionLayerInstructionWithAssetTrack:videoTrack];
+        
+        AVMutableVideoCompositionInstruction *compositionInstruction = [AVMutableVideoCompositionInstruction videoCompositionInstruction];
+        compositionInstruction.timeRange = CMTimeRangeMake(kCMTimeZero, self.composition.duration);
+        compositionInstruction.layerInstructions = @[compositionLayerInstruction];
+        
+        _videoComposition = [AVMutableVideoComposition videoComposition];
+        _videoComposition.instructions = @[compositionInstruction];
+        _videoComposition.renderSize = videoTrack.naturalSize;
+        _videoComposition.frameDuration = CMTimeMake(1, 30);
+    }
+    
+    return _videoComposition;
 }
 
 #pragma mark - actions
@@ -55,24 +77,82 @@
     [self exportVideo];
 }
 
-- (IBAction)addWatermark:(UIButton *)sender {
+- (IBAction)addWatermark:(UISwitch *)sender {
     
-    sender.enabled = NO;
-    [self addWaterMark];
+    if (sender.isOn) {
+        
+        CALayer *watermarkLayer =  [CALayer layer];
+        watermarkLayer.backgroundColor = [UIColor greenColor].CGColor;
+        watermarkLayer.frame = CGRectMake(8, 8, 20, 20);
+        [self.playerView.layer addSublayer:watermarkLayer];
+        self.waterMarkLayer = watermarkLayer;
+
+    }else{
+        
+        [self.waterMarkLayer removeFromSuperlayer];
+        self.waterMarkLayer = nil;
+    }
+    
     [self setupPlayer];
 }
 
-- (IBAction)addBackgroundMusic:(UIButton *)sender {
+- (IBAction)audioFadeOut:(UISwitch *)sender {
     
-    sender.enabled = NO;
-    [self updateMusic];
+    AVMutableAudioMixInputParameters *parameters = (AVMutableAudioMixInputParameters *)[self.audioMix.inputParameters firstObject];
+    CMTimeRange timeRange = CMTimeRangeMake(CMTimeMakeWithSeconds(CMTimeGetSeconds(self.composition.duration)/2, 600), self.composition.duration);
+
+    if (sender.isOn) {
+        [parameters setVolumeRampFromStartVolume:1 toEndVolume:0 timeRange:timeRange];
+    }else{
+        [parameters setVolumeRampFromStartVolume:1 toEndVolume:1 timeRange:timeRange];
+    }
+    
     [self setupPlayer];
 }
 
-- (IBAction)processVideo:(UIButton *)sender {
+- (IBAction)videoFadeOut:(UISwitch *)sender {
     
-    sender.enabled = NO;
-    [self addVideoEffect];
+    AVMutableVideoCompositionInstruction *compositionInstruction = (AVMutableVideoCompositionInstruction *)[self.videoComposition.instructions firstObject];
+    AVMutableVideoCompositionLayerInstruction *compositionLayerInstruction = (AVMutableVideoCompositionLayerInstruction *)[compositionInstruction.layerInstructions firstObject];
+    CMTimeRange timeRange = CMTimeRangeMake(CMTimeMakeWithSeconds(CMTimeGetSeconds(self.composition.duration)/2, 600), self.composition.duration);
+
+    if (sender.isOn) {
+        [compositionLayerInstruction setOpacityRampFromStartOpacity:1 toEndOpacity:0 timeRange:timeRange];
+    }else{
+        [compositionLayerInstruction setOpacityRampFromStartOpacity:1 toEndOpacity:1 timeRange:timeRange];
+    }
+    
+    [self setupPlayer];
+}
+
+- (IBAction)videoTransform:(UISwitch *)sender {
+    
+    AVMutableVideoCompositionInstruction *compositionInstruction = (AVMutableVideoCompositionInstruction *)[self.videoComposition.instructions firstObject];
+    AVMutableVideoCompositionLayerInstruction *compositionLayerInstruction = (AVMutableVideoCompositionLayerInstruction *)[compositionInstruction.layerInstructions firstObject];
+    CMTimeRange timeRange = CMTimeRangeMake(CMTimeMakeWithSeconds(CMTimeGetSeconds(self.composition.duration)/2, 600), self.composition.duration);
+    
+    AVMutableCompositionTrack *videoTrack = [[self.composition tracksWithMediaType:AVMediaTypeVideo] firstObject];
+    CGAffineTransform currentTransform = videoTrack.preferredTransform;
+    CGAffineTransform newTransform  = CGAffineTransformTranslate(currentTransform, 0, videoTrack.naturalSize.height);
+    
+    if (sender.isOn) {
+        [compositionLayerInstruction setTransformRampFromStartTransform:currentTransform toEndTransform:newTransform timeRange:timeRange];
+    }else{
+        [compositionLayerInstruction setTransformRampFromStartTransform:currentTransform toEndTransform:currentTransform timeRange:timeRange];
+    }
+    
+    [self setupPlayer];
+}
+
+- (IBAction)videoBackgroundColor:(UISwitch *)sender {
+
+    AVMutableVideoCompositionInstruction *compositionInstruction = (AVMutableVideoCompositionInstruction *)[self.videoComposition.instructions firstObject];
+    if (sender.isOn) {
+        compositionInstruction.backgroundColor = [UIColor redColor].CGColor;
+    }else{
+        compositionInstruction.backgroundColor = [UIColor clearColor].CGColor;
+    }
+    
     [self setupPlayer];
 }
 
@@ -85,6 +165,8 @@
 #pragma mark - private method
 
 - (void)exportVideo{
+    
+    if (self.player) [self.player pause];
     
     self.loadingView.hidden = NO;
     
@@ -136,7 +218,7 @@
     }];
 }
 
-#pragma mark  play video
+#pragma mark  setup video player
 
 - (void)setupPlayerWithUrl:(NSURL *)url{
     
@@ -167,6 +249,7 @@
     
     if (self.player) {
         
+        [self.player pause];
         [self.player replaceCurrentItemWithPlayerItem:item];
         
     }else{
@@ -179,88 +262,53 @@
         }];
     }
     
-    if(self.waterMarkLayer) {
-         [self.playerView.layer addSublayer:self.waterMarkLayer];
-    }
-    
     self.controlVideoButton.enabled = YES;
 }
 
 #pragma mark  edit video
 
-- (void)addWaterMark{
+- (void)setupComposition{
     
-    if (!self.waterMarkLayer) {
-        
-        CALayer *watermarkLayer =  [CALayer layer];
-        watermarkLayer.backgroundColor = [UIColor greenColor].CGColor;
-        watermarkLayer.frame = CGRectMake(8, 8, 20, 20);
-        self.waterMarkLayer = watermarkLayer;
-    }
-}
-
-- (void)addVideoEffect{
-    
-    AVMutableCompositionTrack *videoTrack = [self getCompositionTrackWithMediaType:AVMediaTypeVideo];
-    AVMutableVideoCompositionLayerInstruction *videoLayerInstruction = [AVMutableVideoCompositionLayerInstruction videoCompositionLayerInstructionWithAssetTrack:videoTrack];
-    CGAffineTransform currentTransform = videoTrack.preferredTransform;
-    CGAffineTransform newTransform  = CGAffineTransformTranslate(currentTransform, 0, videoTrack.naturalSize.height);
-    CMTimeRange effectTimeRange = CMTimeRangeMake(CMTimeMakeWithSeconds(CMTimeGetSeconds(self.composition.duration)/2, 600), self.composition.duration);
-    [videoLayerInstruction setOpacityRampFromStartOpacity:1 toEndOpacity:0 timeRange:effectTimeRange];
-    [videoLayerInstruction setTransformRampFromStartTransform:currentTransform toEndTransform:newTransform timeRange:effectTimeRange];
-    
-    AVMutableVideoCompositionInstruction *videoCompositionInstruction = [AVMutableVideoCompositionInstruction videoCompositionInstruction];
-    videoCompositionInstruction.timeRange = CMTimeRangeMake(kCMTimeZero, self.composition.duration);
-    videoCompositionInstruction.layerInstructions = @[videoLayerInstruction];
-    videoCompositionInstruction.backgroundColor = [UIColor redColor].CGColor;
-
-    self.videoComposition = [AVMutableVideoComposition videoComposition];
-    self.videoComposition.instructions = @[videoCompositionInstruction];
-    self.videoComposition.renderSize = videoTrack.naturalSize;
-    self.videoComposition.frameDuration = CMTimeMake(1, 30);
-}
-
-- (void)updateMusic{
-    
-    NSURL *url = [[NSBundle mainBundle] URLForResource:@"audio" withExtension:@"mp3"];
-    AVURLAsset *asset = [[AVURLAsset alloc] initWithURL:url options:nil];
-    AVAssetTrack *track = [[asset tracksWithMediaType:AVMediaTypeAudio] firstObject];
-    
-    AVMutableCompositionTrack *compositionTrack = [self.composition addMutableTrackWithMediaType:AVMediaTypeAudio preferredTrackID:kCMPersistentTrackID_Invalid];
-    [compositionTrack insertTimeRange:CMTimeRangeMake(kCMTimeZero,self.composition.duration) ofTrack:track atTime:kCMTimeZero error:nil];
-    AVMutableAudioMixInputParameters *mixParameters = [AVMutableAudioMixInputParameters audioMixInputParametersWithTrack:compositionTrack];
-    [mixParameters setVolumeRampFromStartVolume:1 toEndVolume:0 timeRange:CMTimeRangeMake(kCMTimeZero, self.composition.duration)];
-    self.audioMix = [AVMutableAudioMix audioMix];
-    self.audioMix.inputParameters = @[mixParameters];
-}
-
-- (void)appendVideoWithUrl:(NSURL *)url{
-    
-    AVURLAsset *asset = [[AVURLAsset alloc] initWithURL:url options:nil];
-    AVAssetTrack *track = [[asset tracksWithMediaType:AVMediaTypeVideo] firstObject];
-    
-    if ([self isVideoPortrait:track]) {
-        NSLog(@"video is portrait");
-    }else{
-        NSLog(@"video is not portrait");
-    }
-    
-    AVMutableCompositionTrack *compositionTrack = [self getCompositionTrackWithMediaType:AVMediaTypeVideo];
-    if (!compositionTrack) {
-        compositionTrack = [self.composition addMutableTrackWithMediaType:AVMediaTypeVideo preferredTrackID:kCMPersistentTrackID_Invalid];
-    }
-
-    [compositionTrack insertTimeRange:CMTimeRangeMake(kCMTimeZero,CMTimeMakeWithSeconds(3, 600)) ofTrack:track atTime:self.composition.duration error:nil];
-}
-
-- (void)createComposition{
+    NSURL *video1Url = [[NSBundle mainBundle] URLForResource:@"video1" withExtension:@"m4v"];
+    NSURL *video2Url = [[NSBundle mainBundle] URLForResource:@"video2" withExtension:@"mov"];
+    NSURL *audioUrl = [[NSBundle mainBundle] URLForResource:@"audio" withExtension:@"mp3"];
+    AVAssetTrack *video1Track = [self getAssetTrackWithAssetUrl:video1Url mediaType:AVMediaTypeVideo];
+    AVAssetTrack *video2Track = [self getAssetTrackWithAssetUrl:video2Url mediaType:AVMediaTypeVideo];
+    AVAssetTrack *audioTrack = [self getAssetTrackWithAssetUrl:audioUrl mediaType:AVMediaTypeAudio];
+    NSAssert(video1Track && video2Track && audioTrack, @"无法读取视频或音频材料");
     
     self.composition = [AVMutableComposition composition];
-    [self.composition addMutableTrackWithMediaType:AVMediaTypeVideo preferredTrackID:kCMPersistentTrackID_Invalid];
-    [self.composition addMutableTrackWithMediaType:AVMediaTypeAudio preferredTrackID:kCMPersistentTrackID_Invalid];
+    AVMutableCompositionTrack *videoCompositionTrack = [self.composition addMutableTrackWithMediaType:AVMediaTypeVideo preferredTrackID:kCMPersistentTrackID_Invalid];
+    AVMutableCompositionTrack *audioCompositionTrack = [self.composition addMutableTrackWithMediaType:AVMediaTypeAudio preferredTrackID:kCMPersistentTrackID_Invalid];
+    
+    Float64 videoCutTime = 3;
+    CMTimeRange videoCutRange = CMTimeRangeMake(kCMTimeZero, CMTimeMakeWithSeconds(videoCutTime, 600));
+    
+    NSError *error = nil;
+    [videoCompositionTrack insertTimeRange:videoCutRange ofTrack:video1Track atTime:self.composition.duration error:&error];
+    NSAssert(!error, @"插入视频轨道失败");
+    [videoCompositionTrack insertTimeRange:videoCutRange ofTrack:video2Track atTime:self.composition.duration error:&error];
+    NSAssert(!error, @"插入视频轨道失败");
+    
+    CMTimeRange audioCutRange = CMTimeRangeMake(kCMTimeZero, CMTimeMakeWithSeconds(videoCutTime * 2, 600));
+    [audioCompositionTrack insertTimeRange:audioCutRange ofTrack:audioTrack atTime:kCMTimeZero error:&error];
+    NSAssert(!error, @"插入音频轨道失败");
 }
 
 #pragma mark Utilities
+
+- (AVAssetTrack *)getAssetTrackWithAssetUrl:(NSURL *)url mediaType:(NSString *)mediaType{
+    
+    AVAssetTrack *track = nil;
+    
+    AVURLAsset *asset = [AVURLAsset assetWithURL:url];
+    NSArray *trackArray = [asset tracksWithMediaType:mediaType];
+    if (trackArray.count > 0) {
+        track = [trackArray firstObject];
+    }
+
+    return track;
+}
 
 - (void)saveVideoWithUrl:(NSURL *)url{
     
@@ -302,16 +350,6 @@
     }
     
     return isPortrait;
-}
-
-- (AVMutableCompositionTrack *)getCompositionTrackWithMediaType:(NSString *)mediaType{
-    
-    AVMutableCompositionTrack *compositionTrack = nil;
-    NSArray *compositionTracks = [self.composition tracksWithMediaType:mediaType];
-    if (compositionTracks.count > 0) {
-        compositionTrack = [compositionTracks firstObject];
-    }
-    return compositionTrack;
 }
 
 @end
