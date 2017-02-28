@@ -1,1 +1,1 @@
-# AVFoundationDemo_1
+使用AVFoundation编辑视频的demo，主要功能为： 1.多个视频的拼接； 2.为视频添加声音； 3.视频淡出效果； 4.视频transform效果； 5.声音淡出效果； 6.视频导出到本地。
