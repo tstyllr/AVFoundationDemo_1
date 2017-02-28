@@ -161,6 +161,7 @@
                     </view>
                     <connections>
                         <outlet property="controlVideoButton" destination="4zm-HS-qxk" id="ADv-7s-g3o"/>
+                        <outlet property="exportButton" destination="W1B-Gq-N7I" id="wXt-Pr-MKB"/>
                         <outlet property="loadingView" destination="jhn-tP-VUz" id="z2S-QP-Uj5"/>
                         <outlet property="playerView" destination="n6M-fU-cYa" id="0I7-FL-ovh"/>
                     </connections>

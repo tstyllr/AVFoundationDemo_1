@@ -7,15 +7,36 @@
 //
 
 #import "ViewController.h"
-#import <AVFoundation/AVFoundation.h>
 #import <Photos/Photos.h>
-#import "PlayerView.h"
+
+@implementation PlayerView
+
++ (Class)layerClass{
+    
+    return [AVPlayerLayer class];
+}
+
+- (void)setPlayer:(AVPlayer *)player{
+    
+    AVPlayerLayer *layer = (AVPlayerLayer *)self.layer;
+    layer.player = player;
+}
+
+- (AVPlayer *)player{
+    
+    AVPlayerLayer *layer = (AVPlayerLayer *)self.layer;
+    return layer.player;
+}
+
+
+@end
 
 @interface ViewController ()
 
 @property (weak, nonatomic) IBOutlet PlayerView *playerView;
 @property (weak, nonatomic) IBOutlet UIBarButtonItem *controlVideoButton;
 @property (weak, nonatomic) IBOutlet UIView *loadingView;
+@property (weak, nonatomic) IBOutlet UIButton *exportButton;
 
 @property (strong,nonatomic) AVPlayer *player;
 @property (strong,nonatomic) AVMutableComposition *composition;
@@ -31,6 +52,8 @@
 - (void)viewDidLoad{
     
     [super viewDidLoad];
+    
+    [self requestPhotoLibraryAuthorization];
     [self setupComposition];
     [self setupPlayer];
 }
@@ -200,18 +223,12 @@
             
             NSString *message = nil;
             if (exportSession.status == AVAssetExportSessionStatusCompleted) {
-                
                 message = @"Export success";
                 [self saveVideoWithUrl:videoUrl];
-                
             }else{
                 message = @"Export failure";
             }
-            UIAlertAction *cancel = [UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:^(UIAlertAction * _Nonnull action) {
-            }];
-            UIAlertController *alert = [UIAlertController alertControllerWithTitle:nil message:message preferredStyle:UIAlertControllerStyleAlert];
-            [alert addAction:cancel];
-            [self presentViewController:alert animated:YES completion:nil];
+            [self showAlertWithMessage:message];
         });
     }];
 }
@@ -278,6 +295,34 @@
 }
 
 #pragma mark utilities
+
+- (void)showAlertWithMessage:(NSString *)message{
+    
+    UIAlertAction *cancel = [UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:^(UIAlertAction * _Nonnull action) {
+    }];
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:nil message:message preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:cancel];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
+- (void)requestPhotoLibraryAuthorization{
+    
+    if ([PHPhotoLibrary authorizationStatus] != PHAuthorizationStatusAuthorized) {
+        
+        self.exportButton.enabled = NO;
+        [PHPhotoLibrary requestAuthorization:^(PHAuthorizationStatus status) {
+            
+            dispatch_async(dispatch_get_main_queue(), ^{
+                
+                if (status == PHAuthorizationStatusAuthorized) {
+                    self.exportButton.enabled = YES;
+                }else{
+                    [self showAlertWithMessage:@"请允许app访问您的“照片”，否则无法使用导出功能！"];
+                }
+            });
+        }];
+    }
+}
 
 - (void)saveVideoWithUrl:(NSURL *)url{
     

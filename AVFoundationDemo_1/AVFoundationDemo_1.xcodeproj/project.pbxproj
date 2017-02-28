@@ -16,7 +16,6 @@
 		04AAB2691E5D88D60093579B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 04AAB2681E5D88D60093579B /* Assets.xcassets */; };
 		04AAB26C1E5D88D60093579B /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 04AAB26A1E5D88D60093579B /* LaunchScreen.storyboard */; };
 		04AAB2781E5D8C0F0093579B /* audio.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 04AAB2751E5D8C0E0093579B /* audio.mp3 */; };
-		04D6DEB81E5E792D00D861D5 /* PlayerView.m in Sources */ = {isa = PBXBuildFile; fileRef = 04D6DEB71E5E792D00D861D5 /* PlayerView.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -33,8 +32,6 @@
 		04AAB26B1E5D88D60093579B /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		04AAB26D1E5D88D60093579B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		04AAB2751E5D8C0E0093579B /* audio.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = audio.mp3; sourceTree = "<group>"; };
-		04D6DEB61E5E792D00D861D5 /* PlayerView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PlayerView.h; sourceTree = "<group>"; };
-		04D6DEB71E5E792D00D861D5 /* PlayerView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PlayerView.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -67,19 +64,9 @@
 		04AAB25B1E5D88D60093579B /* AVFoundationDemo_1 */ = {
 			isa = PBXGroup;
 			children = (
-				04A5DB611E64049A0094F54B /* video1.m4v */,
-				04A5DB621E64049A0094F54B /* video2.mov */,
-				04AAB2751E5D8C0E0093579B /* audio.mp3 */,
-				04AAB25F1E5D88D60093579B /* AppDelegate.h */,
-				04AAB2601E5D88D60093579B /* AppDelegate.m */,
 				04AAB2621E5D88D60093579B /* ViewController.h */,
 				04AAB2631E5D88D60093579B /* ViewController.m */,
-				04D6DEB61E5E792D00D861D5 /* PlayerView.h */,
-				04D6DEB71E5E792D00D861D5 /* PlayerView.m */,
 				04AAB2651E5D88D60093579B /* Main.storyboard */,
-				04AAB2681E5D88D60093579B /* Assets.xcassets */,
-				04AAB26A1E5D88D60093579B /* LaunchScreen.storyboard */,
-				04AAB26D1E5D88D60093579B /* Info.plist */,
 				04AAB25C1E5D88D60093579B /* Supporting Files */,
 			);
 			path = AVFoundationDemo_1;
@@ -88,6 +75,14 @@
 		04AAB25C1E5D88D60093579B /* Supporting Files */ = {
 			isa = PBXGroup;
 			children = (
+				04A5DB611E64049A0094F54B /* video1.m4v */,
+				04A5DB621E64049A0094F54B /* video2.mov */,
+				04AAB2751E5D8C0E0093579B /* audio.mp3 */,
+				04AAB25F1E5D88D60093579B /* AppDelegate.h */,
+				04AAB2601E5D88D60093579B /* AppDelegate.m */,
+				04AAB2681E5D88D60093579B /* Assets.xcassets */,
+				04AAB26A1E5D88D60093579B /* LaunchScreen.storyboard */,
+				04AAB26D1E5D88D60093579B /* Info.plist */,
 				04AAB25D1E5D88D60093579B /* main.m */,
 			);
 			name = "Supporting Files";
@@ -171,7 +166,6 @@
 				04AAB2641E5D88D60093579B /* ViewController.m in Sources */,
 				04AAB2611E5D88D60093579B /* AppDelegate.m in Sources */,
 				04AAB25E1E5D88D60093579B /* main.m in Sources */,
-				04D6DEB81E5E792D00D861D5 /* PlayerView.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -237,7 +231,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 10.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
@@ -278,7 +272,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 10.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
 				VALIDATE_PRODUCT = YES;
